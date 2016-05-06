@@ -16,12 +16,12 @@ namespace EasyBoard
         /// <summary>
         /// The board key code.
         /// </summary>
-        public const KeyCode BoardKey = KeyCode.B;
+        private const KeyCode BoardKey = KeyCode.B;
 
         /// <summary>
-        /// The status message delay.
+        /// The status message duration.
         /// </summary>
-        private const float MessageDelay = 3f;
+        private const float MessageDuration = 3f;
 
         /// <summary>
         /// The addon maximum distance to a seat to board.
@@ -67,7 +67,7 @@ namespace EasyBoard
         }
 
         /// <summary>
-        /// Addon update logic.
+        /// Addon work logic.
         /// </summary>
         public void Update()
         {
@@ -77,6 +77,8 @@ namespace EasyBoard
 
                 if (Input.GetKeyDown(BoardKey))
                 {
+                    // Prevent addon on map view, or when kerbal is busy,
+                    // or when player is typing text in some text field.
                     if (MapView.MapIsEnabled || !this.CrewCanBoard(FlightGlobals.ActiveVessel.evaController))
                     {
                         return;
@@ -108,11 +110,15 @@ namespace EasyBoard
                         {
                             if (airlockPart.protoModuleCrew.Count < airlockPart.CrewCapacity)
                             {
+                                // There is enough place for the kerbal,
+                                // boarding should be successful. We can reset addon fields.
                                 this.AllowMessages = false;
                                 this.AddonReset();
                             }
 
+                            // Try board.
                             kerbal.BoardPart(airlockPart);
+                            return;
                         }
                     }
 
@@ -127,12 +133,15 @@ namespace EasyBoard
                             this.AllowMessages = false;
                             seat.BoardSeat();
 
+                            // Check whether boarding seat was successful.
                             if (((PartModule)seat).Events["BoardSeat"].active)
                             {
+                                // Fail case.
                                 this.AllowMessages = true;
                             }
                             else
                             {
+                                // Success case.
                                 this.AddonReset();
                             }
                         }
@@ -144,7 +153,7 @@ namespace EasyBoard
         }
 
         /// <summary>
-        /// Called on addon instance destroy.
+        /// Addon shutdown logic.
         /// </summary>
         public void OnDestroy()
         {
@@ -155,10 +164,10 @@ namespace EasyBoard
 
         #region Private_Methods
         /// <summary>
-        /// Check if crew can board.
+        /// Checks whether the crew is not busy and can board vessel.
         /// </summary>
         /// <param name="kerbal">The kerbal.</param>
-        /// <returns>True when crew can board.</returns>
+        /// <returns>True when crew can board, otherwise false.</returns>
         private bool CrewCanBoard(KerbalEVA kerbal)
         {
             return kerbal != null
@@ -275,7 +284,7 @@ namespace EasyBoard
         {
             if (this.AllowMessages && !string.IsNullOrEmpty(message))
             {
-                ScreenMessages.PostScreenMessage(message, MessageDelay);
+                ScreenMessages.PostScreenMessage(message, MessageDuration);
             }
         }
 
