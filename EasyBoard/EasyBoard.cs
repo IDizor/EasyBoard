@@ -227,7 +227,7 @@ namespace EasyBoard
                 // Get vessel seats available for boarding.
                 foreach (KerbalSeat seat in nearestVessel.FindPartModulesImplementing<KerbalSeat>())
                 {
-                    if (((PartModule)seat).Events["BoardSeat"].active &&
+                    if (seat.Occupant == null &&
                         (seat.transform.position - kerbal.vessel.transform.position).sqrMagnitude <= maxDistance)
                     {
                         seats.Add(seat);
@@ -259,7 +259,7 @@ namespace EasyBoard
         {
             if (!string.IsNullOrEmpty(this.KerbalName))
             {
-                return this.KerbalName + (this.WantsBoard ? " wants board" : " hesitating");
+                return this.KerbalName + (this.WantsBoard ? " wants to board" : " hesitating");
             }
 
             return string.Empty;
@@ -297,12 +297,19 @@ namespace EasyBoard
         /// <param name="instance">The object instance.</param>
         /// <param name="fieldName">Name of field to get.</param>
         /// <returns>Field value.</returns>
-        internal static T GetObjectField<T>(Type type, object instance, string fieldName)
+        private T GetObjectField<T>(Type type, object instance, string fieldName)
         {
-            BindingFlags bindFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
+            try
+            {
+                BindingFlags bindFlags = BindingFlags.Instance | BindingFlags.NonPublic;
+                FieldInfo field = type.GetField(fieldName, bindFlags);
 
-            FieldInfo field = type.GetField(fieldName, bindFlags);
-            return (T)field.GetValue(instance);
+                return (T)field.GetValue(instance);
+            }
+            catch
+            {
+                return default(T);
+            }
         }
 
         /// <summary>
