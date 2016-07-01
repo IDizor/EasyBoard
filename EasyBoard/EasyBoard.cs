@@ -14,11 +14,6 @@ namespace EasyBoard
     {
         #region Private_Constants
         /// <summary>
-        /// The board key code.
-        /// </summary>
-        private const KeyCode BoardKey = KeyCode.B;
-
-        /// <summary>
         /// The status message duration.
         /// </summary>
         private const float MessageDuration = 3f;
@@ -54,6 +49,17 @@ namespace EasyBoard
         /// Indicates whether to allow addon messages.
         /// </summary>
         private bool AllowMessages = true;
+
+        /// <summary>
+        /// Gets the boarding key code from game configuration.
+        /// </summary>
+        private KeyCode BoardKey
+        {
+            get
+            {
+                return GameSettings.EVA_Board.primary;
+            }
+        }
         #endregion
 
         #region Public_Methods
@@ -75,7 +81,7 @@ namespace EasyBoard
             {
                 string message = string.Empty;
 
-                if (Input.GetKeyDown(BoardKey))
+                if (Input.GetKeyDown(this.BoardKey))
                 {
                     // Prevent addon on map view, or when kerbal is busy,
                     // or when player is typing text in some text field.
@@ -126,7 +132,7 @@ namespace EasyBoard
                     if (airlockPart == null)
                     {
                         KerbalSeat seat = this.GetNearestSeat(kerbal,
-                            Input.GetKeyDown(BoardKey) ? OriginalSeatDistance : SeatDistance);
+                            Input.GetKeyDown(this.BoardKey) ? OriginalSeatDistance : SeatDistance);
 
                         if (seat != null)
                         {
