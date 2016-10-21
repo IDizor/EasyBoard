@@ -85,7 +85,7 @@ namespace EasyBoard
                 {
                     // Prevent addon on map view, or when kerbal is busy,
                     // or when player is typing text in some text field.
-                    if (MapView.MapIsEnabled || !this.CrewCanBoard(FlightGlobals.ActiveVessel.evaController))
+                    if (!this.CanKerbalStartToWant(FlightGlobals.ActiveVessel.evaController))
                     {
                         return;
                     }
@@ -170,15 +170,16 @@ namespace EasyBoard
 
         #region Private_Methods
         /// <summary>
-        /// Checks whether the crew is not busy and can board vessel.
+        /// Checks whether the kerbal is not busy and can board any vessel.
         /// </summary>
         /// <param name="kerbal">The kerbal.</param>
-        /// <returns>True when crew can board, otherwise false.</returns>
-        private bool CrewCanBoard(KerbalEVA kerbal)
+        /// <returns>True when kerbal can start to want to board, otherwise false.</returns>
+        private bool CanKerbalStartToWant(KerbalEVA kerbal)
         {
-            return kerbal != null
-                && !kerbal.Animations.flagPlant.State.enabled
-                && EventSystem.current.currentSelectedGameObject == null;
+            return kerbal != null                                           // Kerbal exists.
+                && !MapView.MapIsEnabled                                    // Player is not on Map View now.
+                && !kerbal.Animations.flagPlant.State.enabled               // Kerbal is not planting flag now.
+                && EventSystem.current.currentSelectedGameObject == null;   // Player is not typing text in some UI text field.
         }
 
         /// <summary>
