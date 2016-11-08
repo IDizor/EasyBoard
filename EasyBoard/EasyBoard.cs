@@ -27,6 +27,21 @@ namespace EasyBoard
         /// The original maximum distance to a seat to board.
         /// </summary>
         private const float OriginalSeatDistance = 4f;
+
+        /// <summary>
+        /// The wants to board message.
+        /// </summary>
+        private const string WantsToBoardMessage = " wants to board";
+
+        /// <summary>
+        /// The wants to grab a ladder message.
+        /// </summary>
+        private const string WantsToGrabMessage = " wants to grab a ladder";
+
+        /// <summary>
+        /// The hesitating message.
+        /// </summary>
+        private const string HesitatingMessage = " is hesitating";
         #endregion
 
         #region Private_Fields
@@ -132,7 +147,7 @@ namespace EasyBoard
                         this.KerbalName = FlightGlobals.ActiveVessel.vesselName;
                     }
 
-                    message = this.GetStatusMessage();
+                    message = this.GetStatusMessage(this.WantsToBoard ? WantsToBoardMessage : HesitatingMessage);
                 }
 
                 if (Input.GetKeyDown(this.GrabKey) && !kerbal.OnALadder)
@@ -152,7 +167,7 @@ namespace EasyBoard
                         this.KerbalName = FlightGlobals.ActiveVessel.vesselName;
                     }
 
-                    message = this.GetStatusMessage();
+                    message = this.GetStatusMessage(this.WantsToGrab ? WantsToGrabMessage : HesitatingMessage);
                 }
 
                 if (this.WantsToBoard)
@@ -201,11 +216,13 @@ namespace EasyBoard
                             {
                                 // Success case.
                                 this.AddonReset();
+                                return;
                             }
                         }
                     }
                 }
-                else if (this.WantsToGrab && !kerbal.OnALadder)
+
+                if (this.WantsToGrab && !kerbal.OnALadder)
                 {
                     ScreenMessages screenMessages = GameObject.FindObjectOfType<ScreenMessages>();
                     foreach (var activeMessage in screenMessages.ActiveMessages)
@@ -336,15 +353,11 @@ namespace EasyBoard
         /// Gets the kerbal status message.
         /// </summary>
         /// <returns>The kerbal status message.</returns>
-        private string GetStatusMessage()
+        private string GetStatusMessage(string message)
         {
             if (!string.IsNullOrEmpty(this.KerbalName))
             {
-                return this.KerbalName + (this.WantsToBoard
-                    ? " wants to board"
-                    : this.WantsToGrab
-                        ? " wants to grab a ladder"
-                        : " is hesitating");
+                return this.KerbalName + message;
             }
 
             return string.Empty;
@@ -357,7 +370,7 @@ namespace EasyBoard
         {
             this.WantsToBoard = false;
             this.WantsToGrab = false;
-            this.DisplayMessage(this.GetStatusMessage());
+            this.DisplayMessage(this.GetStatusMessage(HesitatingMessage));
             this.KerbalName = string.Empty;
             this.AirlockPart = null;
         }
