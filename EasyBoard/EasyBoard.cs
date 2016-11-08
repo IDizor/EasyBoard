@@ -31,9 +31,14 @@ namespace EasyBoard
 
         #region Private_Fields
         /// <summary>
-        /// Indicates whether crew wants board.
+        /// Indicates whether crew wants to board.
         /// </summary>
-        private bool WantsBoard = false;
+        private bool WantsToBoard = false;
+
+        /// <summary>
+        /// Indicates whether crew wants to grab a ladder.
+        /// </summary>
+        private bool WantsToGrab = false;
 
         /// <summary>
         /// The name of current kerbal.
@@ -60,6 +65,17 @@ namespace EasyBoard
                 return GameSettings.EVA_Board.primary;
             }
         }
+
+        /// <summary>
+        /// Gets the grab key code from game configuration.
+        /// </summary>
+        private KeyCode GrabKey
+        {
+            get
+            {
+                return GameSettings.EVA_Use.primary;
+            }
+        }
         #endregion
 
         #region Public_Methods
@@ -81,19 +97,37 @@ namespace EasyBoard
             {
                 string message = string.Empty;
 
+                KerbalEVA kerbal = FlightGlobals.ActiveVessel.evaController;
+
+                if (kerbal == null)
+                {
+                    return;
+                }
+
+                //if (Input.GetKeyDown(KeyCode.Home))
+                //{
+                //    KerbalFSM fsm = kerbal.fsm;
+                //    string s = "";
+                //    foreach (var stateEvent in fsm.CurrentState.StateEvents)
+                //    {
+                //        s += "[" + stateEvent.name + "]";
+                //    }
+                //    ScreenMessages.PostScreenMessage(s, 5f);
+                //}
+
                 if (Input.GetKeyDown(this.BoardKey))
                 {
                     // Prevent addon on map view, or when kerbal is busy,
                     // or when player is typing text in some text field.
-                    if (!this.CanKerbalStartToWant(FlightGlobals.ActiveVessel.evaController))
+                    if (!this.CanKerbalStartToWant(kerbal))
                     {
                         return;
                     }
 
                     this.AllowMessages = true;
-                    this.WantsBoard = !this.WantsBoard;
+                    this.WantsToBoard = !this.WantsToBoard;
 
-                    if (this.WantsBoard)
+                    if (this.WantsToBoard)
                     {
                         this.KerbalName = FlightGlobals.ActiveVessel.vesselName;
                     }
@@ -101,9 +135,27 @@ namespace EasyBoard
                     message = this.GetStatusMessage();
                 }
 
-                KerbalEVA kerbal = FlightGlobals.ActiveVessel.evaController;
+                if (Input.GetKeyDown(this.GrabKey) && !kerbal.OnALadder)
+                {
+                    // Prevent addon on map view, or when kerbal is busy,
+                    // or when player is typing text in some text field.
+                    if (!this.CanKerbalStartToWant(kerbal))
+                    {
+                        return;
+                    }
 
-                if (this.WantsBoard && kerbal != null)
+                    this.AllowMessages = true;
+                    this.WantsToGrab = !this.WantsToGrab;
+                    
+                    if (this.WantsToGrab)
+                    {
+                        this.KerbalName = FlightGlobals.ActiveVessel.vesselName;
+                    }
+
+                    message = this.GetStatusMessage();
+                }
+
+                if (this.WantsToBoard)
                 {
                     Part airlockPart = this.GetKerbalAirlock(kerbal);
 
@@ -150,6 +202,28 @@ namespace EasyBoard
                                 // Success case.
                                 this.AddonReset();
                             }
+                        }
+                    }
+                }
+                else if (this.WantsToGrab && !kerbal.OnALadder)
+                {
+                    ScreenMessages screenMessages = GameObject.FindObjectOfType<ScreenMessages>();
+                    foreach (var activeMessage in screenMessages.ActiveMessages)
+                    {
+                        if (activeMessage.message.EndsWith("]: Grab", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            foreach (var stateEvent in kerbal.fsm.CurrentState.StateEvents)
+                            {
+                                if (stateEvent.name == "Ladder Grab Start")
+                                {
+                                    this.AllowMessages = false;
+                                    this.WantsToGrab = false;
+                                    kerbal.fsm.RunEvent(stateEvent);
+                                    break;
+                                }
+                            }
+
+                            break;
                         }
                     }
                 }
@@ -266,7 +340,11 @@ namespace EasyBoard
         {
             if (!string.IsNullOrEmpty(this.KerbalName))
             {
-                return this.KerbalName + (this.WantsBoard ? " wants to board" : " hesitating");
+                return this.KerbalName + (this.WantsToBoard
+                    ? " wants to board"
+                    : this.WantsToGrab
+                        ? " wants to grab a ladder"
+                        : " is hesitating");
             }
 
             return string.Empty;
@@ -277,7 +355,8 @@ namespace EasyBoard
         /// </summary>
         private void AddonReset()
         {
-            this.WantsBoard = false;
+            this.WantsToBoard = false;
+            this.WantsToGrab = false;
             this.DisplayMessage(this.GetStatusMessage());
             this.KerbalName = string.Empty;
             this.AirlockPart = null;
