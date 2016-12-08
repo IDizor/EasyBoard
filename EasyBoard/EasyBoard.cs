@@ -152,22 +152,38 @@ namespace EasyBoard
 
                 if (Input.GetKeyDown(this.GrabKey) && !kerbal.OnALadder)
                 {
-                    // Prevent addon on map view, or when kerbal is busy,
-                    // or when player is typing text in some text field.
-                    if (!this.CanKerbalStartToWant(kerbal))
+                    string pattern = "[" + this.GrabKey.ToString() + "]:";
+                    bool canGrabNow = false;
+
+                    ScreenMessages screenMessages = GameObject.FindObjectOfType<ScreenMessages>();
+                    foreach (var activeMessage in screenMessages.ActiveMessages)
                     {
-                        return;
+                        if (activeMessage.message.StartsWith(pattern, StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            canGrabNow = true;
+                            break;
+                        }
                     }
 
-                    this.AllowMessages = true;
-                    this.WantsToGrab = !this.WantsToGrab;
-                    
-                    if (this.WantsToGrab)
+                    if (!canGrabNow)
                     {
-                        this.KerbalName = FlightGlobals.ActiveVessel.vesselName;
-                    }
+                        // Prevent addon on map view, or when kerbal is busy,
+                        // or when player is typing text in some text field.
+                        if (!this.CanKerbalStartToWant(kerbal))
+                        {
+                            return;
+                        }
 
-                    message = this.GetStatusMessage(this.WantsToGrab ? WantsToGrabMessage : HesitatingMessage);
+                        this.AllowMessages = true;
+                        this.WantsToGrab = !this.WantsToGrab;
+
+                        if (this.WantsToGrab)
+                        {
+                            this.KerbalName = FlightGlobals.ActiveVessel.vesselName;
+                        }
+
+                        message = this.GetStatusMessage(this.WantsToGrab ? WantsToGrabMessage : HesitatingMessage);
+                    }
                 }
 
                 if (this.WantsToBoard)
