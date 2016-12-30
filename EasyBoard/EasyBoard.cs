@@ -19,12 +19,12 @@ namespace EasyBoard
         private const float MessageDuration = 3f;
 
         /// <summary>
-        /// The addon maximum distance to a seat to board.
+        /// The maximum distance to board the command seat.
         /// </summary>
         private const float SeatDistance = 2f;
 
         /// <summary>
-        /// The original maximum distance to a seat to board.
+        /// The original maximum distance to board the command seat.
         /// </summary>
         private const float OriginalSeatDistance = 4f;
 
@@ -42,6 +42,11 @@ namespace EasyBoard
         /// The hesitating message.
         /// </summary>
         private const string HesitatingMessage = " is hesitating";
+
+        /// <summary>
+        /// The control lock identifier.
+        /// </summary>
+        private const string ControlLockId = "EasyBoard_ControlLock";
         #endregion
 
         #region Private_Fields
@@ -69,6 +74,11 @@ namespace EasyBoard
         /// Indicates whether to allow addon messages.
         /// </summary>
         private bool AllowMessages = true;
+
+        /// <summary>
+        /// The releasing control keys flag.
+        /// </summary>
+        private bool ReleasingKeys = false;
 
         /// <summary>
         /// Gets the boarding key code from game configuration.
@@ -104,10 +114,12 @@ namespace EasyBoard
         }
 
         /// <summary>
-        /// Addon work logic.
+        /// Update is called once per frame.
         /// </summary>
         public void Update()
         {
+            this.CheckVesselControl();
+
             if (FlightGlobals.ActiveVessel.isEVA)
             {
                 string message = string.Empty;
@@ -119,18 +131,7 @@ namespace EasyBoard
                     return;
                 }
 
-                //if (Input.GetKeyDown(KeyCode.Home))
-                //{
-                //    KerbalFSM fsm = kerbal.fsm;
-                //    string s = "";
-                //    foreach (var stateEvent in fsm.CurrentState.StateEvents)
-                //    {
-                //        s += "[" + stateEvent.name + "]";
-                //    }
-                //    ScreenMessages.PostScreenMessage(s, 5f);
-                //}
-
-                if (Input.GetKeyDown(this.BoardKey))
+                if (Input.GetKeyUp(this.BoardKey))
                 {
                     // Prevent addon on map view, or when kerbal is busy,
                     // or when player is typing text in some text field.
@@ -150,7 +151,7 @@ namespace EasyBoard
                     message = this.GetStatusMessage(this.WantsToBoard ? WantsToBoardMessage : HesitatingMessage);
                 }
 
-                if (Input.GetKeyDown(this.GrabKey) && !kerbal.OnALadder)
+                if (Input.GetKeyUp(this.GrabKey) && !kerbal.OnALadder)
                 {
                     string pattern = "[" + this.GrabKey.ToString() + "]:";
                     bool canGrabNow = false;
@@ -206,6 +207,7 @@ namespace EasyBoard
                             }
 
                             // Try board.
+                            this.LockVesselControl();
                             kerbal.BoardPart(airlockPart);
                             return;
                         }
@@ -215,11 +217,12 @@ namespace EasyBoard
                     if (airlockPart == null)
                     {
                         KerbalSeat seat = this.GetNearestSeat(kerbal,
-                            Input.GetKeyDown(this.BoardKey) ? OriginalSeatDistance : SeatDistance);
+                            Input.GetKeyUp(this.BoardKey) ? OriginalSeatDistance : SeatDistance);
 
                         if (seat != null)
                         {
                             this.AllowMessages = false;
+                            this.LockVesselControl();
                             seat.BoardSeat();
 
                             // Check whether boarding seat was successful.
@@ -251,6 +254,7 @@ namespace EasyBoard
                                 {
                                     this.AllowMessages = false;
                                     this.WantsToGrab = false;
+                                    this.LockVesselControl();
                                     kerbal.fsm.RunEvent(stateEvent);
                                     break;
                                 }
@@ -275,7 +279,48 @@ namespace EasyBoard
         }
         #endregion
 
-        #region Private_Methods
+        #region Private_Methods        
+        /// <summary>
+        /// Checks the control keys to prevent unwanted control of just boarded vessel.
+        /// </summary>
+        private void CheckVesselControl()
+        {
+            if (this.ReleasingKeys &&
+                !Input.GetKey(GameSettings.PITCH_UP.primary) && !Input.GetKey(GameSettings.PITCH_UP.secondary) &&
+                !Input.GetKey(GameSettings.PITCH_DOWN.primary) && !Input.GetKey(GameSettings.PITCH_DOWN.secondary) &&
+                !Input.GetKey(GameSettings.YAW_LEFT.primary) && !Input.GetKey(GameSettings.YAW_LEFT.secondary) &&
+                !Input.GetKey(GameSettings.YAW_RIGHT.primary) && !Input.GetKey(GameSettings.YAW_RIGHT.secondary) &&
+                !Input.GetKey(GameSettings.THROTTLE_UP.primary) && !Input.GetKey(GameSettings.THROTTLE_UP.secondary) &&
+                !Input.GetKey(GameSettings.LAUNCH_STAGES.primary) && !Input.GetKey(GameSettings.LAUNCH_STAGES.secondary))
+            {
+                this.UnlockVesselControl();
+            }
+        }
+
+        /// <summary>
+        /// Locks the vessel control.
+        /// </summary>
+        private void LockVesselControl()
+        {
+            if (!this.ReleasingKeys)
+            {
+                this.ReleasingKeys = true;
+                InputLockManager.SetControlLock(ControlTypes.ALLBUTCAMERAS, ControlLockId);
+            }
+        }
+
+        /// <summary>
+        /// Unlocks the vessel control.
+        /// </summary>
+        private void UnlockVesselControl()
+        {
+            if (this.ReleasingKeys)
+            {
+                this.ReleasingKeys = false;
+                InputLockManager.RemoveControlLock(ControlLockId);
+            }
+        }
+
         /// <summary>
         /// Checks whether the kerbal is not busy and can board any vessel.
         /// </summary>

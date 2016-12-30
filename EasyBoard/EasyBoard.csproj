@@ -53,7 +53,10 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>copy /y $(TargetPath) "C:\Games\KSP\GameData\EasyBoard\"</PostBuildEvent>
+    <PostBuildEvent>::"C:\Games\Tools\pdb2mdb\pdb2mdb.exe" "$(TargetFileName)"
+copy /y "$(TargetPath)" "C:\Games\KSP\GameData\EasyBoard\"
+::copy /y "$(TargetDir)$(TargetName).pdb" "C:\Games\KSP\GameData\EasyBoard\"
+::copy /y "$(TargetDir)$(TargetName).dll.mdb" "C:\Games\KSP\GameData\EasyBoard\"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
