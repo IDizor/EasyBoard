@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using UniLinq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -81,13 +83,18 @@ namespace EasyBoard
         private bool ReleasingKeys = false;
 
         /// <summary>
+        /// The all loaded kerbal seats.
+        /// </summary>
+        private KerbalSeat[] Seats = null;
+
+        /// <summary>
         /// Gets the boarding key code from game configuration.
         /// </summary>
         private KeyCode BoardKey
         {
             get
             {
-                return GameSettings.EVA_Board.primary;
+                return GameSettings.EVA_Board.primary.code;
             }
         }
 
@@ -98,7 +105,7 @@ namespace EasyBoard
         {
             get
             {
-                return GameSettings.EVA_Use.primary;
+                return GameSettings.EVA_Use.primary.code;
             }
         }
         #endregion
@@ -131,7 +138,7 @@ namespace EasyBoard
                     return;
                 }
 
-                if (Input.GetKeyUp(this.BoardKey))
+                if (IsKeyUp(this.BoardKey))
                 {
                     // Prevent addon on map view, or when kerbal is busy,
                     // or when player is typing text in some text field.
@@ -145,13 +152,14 @@ namespace EasyBoard
 
                     if (this.WantsToBoard)
                     {
+                        this.Seats = null;
                         this.KerbalName = FlightGlobals.ActiveVessel.vesselName;
                     }
 
                     message = this.GetStatusMessage(this.WantsToBoard ? WantsToBoardMessage : HesitatingMessage);
                 }
 
-                if (Input.GetKeyUp(this.GrabKey) && !kerbal.OnALadder)
+                if (IsKeyUp(this.GrabKey) && !kerbal.OnALadder)
                 {
                     string pattern = "[" + this.GrabKey.ToString() + "]:";
                     bool canGrabNow = false;
@@ -217,7 +225,7 @@ namespace EasyBoard
                     if (airlockPart == null)
                     {
                         KerbalSeat seat = this.GetNearestSeat(kerbal,
-                            Input.GetKeyUp(this.BoardKey) ? OriginalSeatDistance : SeatDistance);
+                            IsKeyUp(this.BoardKey) ? OriginalSeatDistance : SeatDistance);
 
                         if (seat != null)
                         {
@@ -243,26 +251,47 @@ namespace EasyBoard
 
                 if (this.WantsToGrab && !kerbal.OnALadder)
                 {
-                    ScreenMessages screenMessages = GameObject.FindObjectOfType<ScreenMessages>();
-                    foreach (var activeMessage in screenMessages.ActiveMessages)
-                    {
-                        if (activeMessage.message.EndsWith("]: Grab", StringComparison.InvariantCultureIgnoreCase))
-                        {
-                            foreach (var stateEvent in kerbal.fsm.CurrentState.StateEvents)
-                            {
-                                if (stateEvent.name == "Ladder Grab Start")
-                                {
-                                    this.AllowMessages = false;
-                                    this.WantsToGrab = false;
-                                    this.LockVesselControl();
-                                    kerbal.fsm.RunEvent(stateEvent);
-                                    break;
-                                }
-                            }
+                    var ladderTriggers = GetObjectField<ICollection>(typeof(KerbalEVA), kerbal, "currentLadderTriggers");
 
-                            break;
+                    if (ladderTriggers != null && ladderTriggers.Count > 0)
+                    {
+                        foreach (var stateEvent in kerbal.fsm.CurrentState.StateEvents)
+                        {
+                            if (stateEvent.name == "Ladder Grab Start")
+                            {
+                                this.AllowMessages = false;
+                                this.WantsToGrab = false;
+                                this.LockVesselControl();
+                                kerbal.fsm.RunEvent(stateEvent);
+                                break;
+                            }
                         }
                     }
+
+                    //ScreenMessages screenMessages = GameObject.FindObjectOfType<ScreenMessages>();
+                    //foreach (var activeMessage in screenMessages.ActiveMessages)
+                    //{
+                    //    if (activeMessage.message.EndsWith("]: Grab", StringComparison.InvariantCultureIgnoreCase))
+                    //    //if (activeMessage.message == KerbalEVA.cacheAutoLOC_114130)
+                    //    {
+                    //        DoSearch(kerbal, "Grab", "kerbal");
+                    //        DoSearch(kerbal, "grab", "kerbal");
+
+                    //        foreach (var stateEvent in kerbal.fsm.CurrentState.StateEvents)
+                    //        {
+                    //            if (stateEvent.name == "Ladder Grab Start")
+                    //            {
+                    //                this.AllowMessages = false;
+                    //                this.WantsToGrab = false;
+                    //                this.LockVesselControl();
+                    //                kerbal.fsm.RunEvent(stateEvent);
+                    //                break;
+                    //            }
+                    //        }
+
+                    //        break;
+                    //    }
+                    //}
                 }
 
                 this.DisplayMessage(message);
@@ -281,17 +310,66 @@ namespace EasyBoard
 
         #region Private_Methods        
         /// <summary>
+        /// Does the object deep search.
+        /// </summary>
+        /// <param name="obj">The object.</param>
+        /// <param name="term">The term.</param>
+        /// <param name="path">The path.</param>
+        private void DoObjectDeepSearch(object obj, string term, string path = "")
+        {
+            if (path.Split(new char[] { '.' }).Length > 10)
+            {
+                return;
+            }
+
+            Type type = obj.GetType();
+
+            BindingFlags bindFlags = BindingFlags.Instance | BindingFlags.Public;
+            FieldInfo[] fields = type.GetFields(bindFlags);
+
+            foreach (var field in fields)
+            {
+                var value = field.GetValue(obj);
+
+                if (value != null)
+                {
+                    if (value.ToString().Contains(term))
+                    {
+                        // found
+                    }
+                    else if (value is string)
+                    {
+                        // skip
+                    }
+                    else if (typeof(ICollection).IsAssignableFrom(field.FieldType))
+                    {
+                        var elements = value as ICollection;
+
+                        for (var i = 0; i < elements.Count; i++)
+                        {
+                            DoObjectDeepSearch(elements.OfType<object>().ElementAt(i), term, path + "." + field.Name + "[" + i.ToString() + "]");
+                        }
+                    }
+                    else if (field.FieldType.IsClass)
+                    {
+                        DoObjectDeepSearch(value, term, path + "." + field.Name);
+                    }
+                }
+            }
+        }
+              
+        /// <summary>
         /// Checks the control keys to prevent unwanted control of just boarded vessel.
         /// </summary>
         private void CheckVesselControl()
         {
             if (this.ReleasingKeys &&
-                !Input.GetKey(GameSettings.PITCH_UP.primary) && !Input.GetKey(GameSettings.PITCH_UP.secondary) &&
-                !Input.GetKey(GameSettings.PITCH_DOWN.primary) && !Input.GetKey(GameSettings.PITCH_DOWN.secondary) &&
-                !Input.GetKey(GameSettings.YAW_LEFT.primary) && !Input.GetKey(GameSettings.YAW_LEFT.secondary) &&
-                !Input.GetKey(GameSettings.YAW_RIGHT.primary) && !Input.GetKey(GameSettings.YAW_RIGHT.secondary) &&
-                !Input.GetKey(GameSettings.THROTTLE_UP.primary) && !Input.GetKey(GameSettings.THROTTLE_UP.secondary) &&
-                !Input.GetKey(GameSettings.LAUNCH_STAGES.primary) && !Input.GetKey(GameSettings.LAUNCH_STAGES.secondary))
+                !Input.GetKey(GameSettings.PITCH_UP.primary.code) && !Input.GetKey(GameSettings.PITCH_UP.secondary.code) &&
+                !Input.GetKey(GameSettings.PITCH_DOWN.primary.code) && !Input.GetKey(GameSettings.PITCH_DOWN.secondary.code) &&
+                !Input.GetKey(GameSettings.YAW_LEFT.primary.code) && !Input.GetKey(GameSettings.YAW_LEFT.secondary.code) &&
+                !Input.GetKey(GameSettings.YAW_RIGHT.primary.code) && !Input.GetKey(GameSettings.YAW_RIGHT.secondary.code) &&
+                !Input.GetKey(GameSettings.THROTTLE_UP.primary.code) && !Input.GetKey(GameSettings.THROTTLE_UP.secondary.code) &&
+                !Input.GetKey(GameSettings.LAUNCH_STAGES.primary.code) && !Input.GetKey(GameSettings.LAUNCH_STAGES.secondary.code))
             {
                 this.UnlockVesselControl();
             }
@@ -342,7 +420,7 @@ namespace EasyBoard
         private Part GetKerbalAirlock(KerbalEVA kerbal)
         {
             // Have to use reflection until I found the correct approach to get kerbal current airlock.
-            // If you read this and have any idea how to avoid reflection please
+            // If you read this and have an idea how to avoid reflection please
             // contact me on forum http://forum.kerbalspaceprogram.com/index.php?/profile/161502-dizor/
             return GetObjectField<Part>(typeof(KerbalEVA), kerbal, "currentAirlockPart");
         }
@@ -355,59 +433,40 @@ namespace EasyBoard
         /// <returns>Nearest seat.</returns>
         private KerbalSeat GetNearestSeat(KerbalEVA kerbal, float maxDistance)
         {
-            KerbalSeat nearestSeat = null;
-            Vessel nearestVessel = null;
-
-            List<Vessel> vessels = new List<Vessel>();
-
-            // Get loaded vessels.
-            foreach (Vessel vessel in FlightGlobals.Vessels)
+            if (this.Seats == null)
             {
-                if (vessel.loaded && !vessel.packed && vessel != kerbal.vessel)
-                {
-                    vessels.Add(vessel);
-                }
+                this.Seats = FindObjectsOfType<KerbalSeat>();
             }
 
-            if (vessels.Count > 0)
+            if (this.Seats.Length > 0)
             {
-                // Get nearest vessel.
-                if (vessels.Count > 1)
-                {
-                    vessels.Sort((v1, v2) =>
-                        (v1.transform.position - kerbal.vessel.transform.position).sqrMagnitude.CompareTo(
-                        (v2.transform.position - kerbal.vessel.transform.position).sqrMagnitude));
-                }
-
-                nearestVessel = vessels[0];
-
-                List<KerbalSeat> seats = new List<KerbalSeat>();
+                var nearSeats = new List<KerbalSeat>();
 
                 // Get vessel seats available for boarding.
-                foreach (KerbalSeat seat in nearestVessel.FindPartModulesImplementing<KerbalSeat>())
+                foreach (KerbalSeat seat in this.Seats)
                 {
                     if (seat.Occupant == null &&
                         (seat.transform.position - kerbal.vessel.transform.position).sqrMagnitude <= maxDistance)
                     {
-                        seats.Add(seat);
+                        nearSeats.Add(seat);
                     }
                 }
 
-                if (seats.Count > 0)
+                if (nearSeats.Count > 0)
                 {
                     // Get nearest seat.
-                    if (seats.Count > 1)
+                    if (nearSeats.Count > 1)
                     {
-                        seats.Sort((s1, s2) =>
+                        nearSeats.Sort((s1, s2) =>
                             (s1.transform.position - kerbal.vessel.transform.position).sqrMagnitude.CompareTo(
                             (s2.transform.position - kerbal.vessel.transform.position).sqrMagnitude));
                     }
 
-                    nearestSeat = seats[0];
+                    return nearSeats[0];
                 }
             }
 
-            return nearestSeat;
+            return null;
         }
 
         /// <summary>
@@ -446,6 +505,25 @@ namespace EasyBoard
             {
                 ScreenMessages.PostScreenMessage(message, MessageDuration);
             }
+        }
+
+        /// <summary>
+        /// Determines whether specified key is released at the moment.
+        /// </summary>
+        /// <param name="keyCode">The key code.</param>
+        private bool IsKeyUp(KeyCode keyCode)
+        {
+            return Input.GetKeyUp(keyCode)
+                && !Input.GetKey(KeyCode.LeftControl)
+                && !Input.GetKey(KeyCode.RightControl)
+                && !Input.GetKey(KeyCode.LeftShift)
+                && !Input.GetKey(KeyCode.RightShift)
+                && !Input.GetKey(KeyCode.LeftAlt)
+                && !Input.GetKey(KeyCode.RightAlt)
+                && !Input.GetKey(KeyCode.CapsLock)
+                && !Input.GetKey(KeyCode.Space)
+                && !Input.GetKey(KeyCode.Tab)
+                && !GameSettings.MODIFIER_KEY.GetKey();
         }
 
         /// <summary>
