@@ -35,16 +35,16 @@
   <ItemGroup>
     <Reference Include="Assembly-CSharp, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>C:\Games\KSP\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>G:\Games\KSP\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>C:\Games\KSP\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>G:\Games\KSP\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>C:\Games\KSP\KSP_x64_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <HintPath>G:\Games\KSP\KSP_x64_Data\Managed\UnityEngine.UI.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -53,10 +53,10 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>"C:\Games\Tools\pdb2mdb\pdb2mdb.exe" "$(TargetFileName)"
-copy /y "$(TargetPath)" "C:\Games\KSP\GameData\EasyBoard\"
-copy /y "$(TargetDir)$(TargetName).pdb" "C:\Games\KSP\GameData\EasyBoard\"
-copy /y "$(TargetDir)$(TargetName).dll.mdb" "C:\Games\KSP\GameData\EasyBoard\"</PostBuildEvent>
+    <PostBuildEvent>::"G:\Games\Tools\pdb2mdb\pdb2mdb.exe" "$(TargetFileName)"
+copy /y "$(TargetPath)" "G:\Games\KSP\GameData\EasyBoard\"
+copy /y "$(TargetDir)$(TargetName).pdb" "G:\Games\KSP\GameData\EasyBoard\"
+copy /y "$(TargetDir)$(TargetName).dll.mdb" "G:\Games\KSP\GameData\EasyBoard\"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
