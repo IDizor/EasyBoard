@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using KSP.Localization;
 using UniLinq;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -88,6 +89,11 @@ namespace EasyBoard
         private KerbalSeat[] Seats = null;
 
         /// <summary>
+        /// The code to perform with next Unity frame.
+        /// </summary>
+        private Action DeferredUpdate = null;
+
+        /// <summary>
         /// Gets the boarding key code from game configuration.
         /// </summary>
         private KeyCode BoardKey
@@ -125,7 +131,26 @@ namespace EasyBoard
         /// </summary>
         public void Update()
         {
+            if (DeferredUpdate != null)
+            {
+                DeferredUpdate();
+                DeferredUpdate = null;
+            }
+
             this.CheckVesselControl();
+
+            if (!GameSettings.MODIFIER_KEY.GetKey(false))
+            {
+                if (GameSettings.FOCUS_NEXT_VESSEL.GetKeyDown(false))
+                {
+                    SwitchToControllableVessel(true);
+                }
+
+                if (GameSettings.FOCUS_PREV_VESSEL.GetKeyDown(false))
+                {
+                    SwitchToControllableVessel(false);
+                }
+            }
 
             if (FlightGlobals.ActiveVessel.isEVA)
             {
@@ -296,6 +321,61 @@ namespace EasyBoard
 
                 this.DisplayMessage(message);
             }
+        }
+
+        private void SwitchToControllableVessel(bool switchForward)
+        {
+            if (FlightGlobals.ActiveVessel != null && !IsVesselControllable(FlightGlobals.ActiveVessel))
+            {
+                var go = switchForward ? 1 : -1;
+                var loadedVessels = FlightGlobals.VesselsLoaded;
+                var controllableVesselsCount = loadedVessels
+                    .Where(v => IsVesselControllable(v))
+                    .Count();
+
+                if (loadedVessels.Count > 1 && controllableVesselsCount > 0)
+                {
+                    var activeVesselIndex = loadedVessels.IndexOf(FlightGlobals.ActiveVessel);
+                    int i = activeVesselIndex;
+
+                    do
+                    {
+                        i = (i + go + loadedVessels.Count) % loadedVessels.Count;
+
+                        if (i != activeVesselIndex && IsVesselControllable(loadedVessels[i]))
+                        {
+                            if (controllableVesselsCount == 1)
+                            {
+                                // when contollable vessel is only one we have to switch back to it with next frame,
+                                // otherwize crew faces in bottom right corner disappear.
+                                DeferredUpdate = () => {
+                                    FlightGlobals.ForceSetActiveVessel(loadedVessels[i]);
+                                    FlightInputHandler.ResumeVesselCtrlState(loadedVessels[i]);
+                                    ScreenMessages.PostScreenMessage(Localizer.Format("#autoLOC_137597"), 5f, ScreenMessageStyle.UPPER_CENTER);
+                                };
+                            }
+                            else
+                            {
+                                FlightGlobals.ForceSetActiveVessel(loadedVessels[i]);
+                                FlightInputHandler.ResumeVesselCtrlState(loadedVessels[i]);
+                            }
+
+                            break;
+                        }
+                    }
+                    while (i != activeVesselIndex);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Checks whether vessel is controllable or commandable.
+        /// </summary>
+        /// <param name="vessel"></param>
+        /// <returns></returns>
+        public bool IsVesselControllable(Vessel vessel)
+        {
+            return vessel != null && vessel.IsControllable || vessel.isCommandable;
         }
 
         /// <summary>
