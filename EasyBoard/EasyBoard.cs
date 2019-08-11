@@ -139,6 +139,7 @@ namespace EasyBoard
 
             this.CheckVesselControl();
 
+            // switching vessel
             if (!GameSettings.MODIFIER_KEY.GetKey(false))
             {
                 if (GameSettings.FOCUS_NEXT_VESSEL.GetKeyDown(false))
@@ -152,6 +153,7 @@ namespace EasyBoard
                 }
             }
 
+            // boarding and grabbing
             if (FlightGlobals.ActiveVessel.isEVA)
             {
                 string message = string.Empty;
@@ -375,7 +377,7 @@ namespace EasyBoard
         /// <returns></returns>
         public bool IsVesselControllable(Vessel vessel)
         {
-            return vessel != null && vessel.IsControllable || vessel.isCommandable;
+            return vessel != null && (vessel.IsControllable || vessel.isCommandable);
         }
 
         /// <summary>
