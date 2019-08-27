@@ -15,8 +15,9 @@ namespace EasyBoard
         public readonly KerbalEVA Kerbal;
         public readonly string KerbalName;
 
-        private bool wantsToBoard;
-        private bool wantsToGrab;
+        public bool WantsToBoard { get; private set; }
+        public bool WantsToGrab { get; private set; }
+
         private Part airlockPart;
         private KerbalSeat[] seats;
 
@@ -70,7 +71,7 @@ namespace EasyBoard
         {
             if (Kerbal != null)
             {
-                if (wantsToBoard)
+                if (WantsToBoard)
                 {
                     Part newAirlockPart = this.GetKerbalAirlock(Kerbal);
 
@@ -92,7 +93,7 @@ namespace EasyBoard
                             // Try to board. In case the cabin is full - game will display appropriate message.
                             Kerbal.BoardPart(newAirlockPart);
 
-                            return wantsToBoard ? Result.None : Result.Boarded;
+                            return WantsToBoard ? Result.None : Result.Boarded;
                         }
                     }
 
@@ -126,7 +127,7 @@ namespace EasyBoard
                     }
                 }
 
-                if (wantsToGrab && !Kerbal.OnALadder)
+                if (WantsToGrab && !Kerbal.OnALadder)
                 {
                     var ladderTriggers = GetObjectField<ICollection>(typeof(KerbalEVA), Kerbal, "currentLadderTriggers");
 
@@ -136,7 +137,7 @@ namespace EasyBoard
                         {
                             if (stateEvent.name == "Ladder Grab Start")
                             {
-                                wantsToGrab = false;
+                                WantsToGrab = false;
                                 Kerbal.fsm.RunEvent(stateEvent);
 
                                 return Result.Grabbed;
@@ -156,9 +157,9 @@ namespace EasyBoard
         {
             if (IsIntentionAllowed())
             {
-                wantsToBoard = !wantsToBoard;
+                WantsToBoard = !WantsToBoard;
 
-                var message = KerbalName + (wantsToBoard ? WantsToBoardMessage : HesitatingMessage);
+                var message = KerbalName + (WantsToBoard ? WantsToBoardMessage : HesitatingMessage);
                 ScreenMessages.PostScreenMessage(message, 3f);
             }
         }
@@ -170,9 +171,9 @@ namespace EasyBoard
         {
             if (IsIntentionAllowed() && !Kerbal.OnALadder)
             {
-                wantsToGrab = !wantsToGrab;
+                WantsToGrab = !WantsToGrab;
 
-                var message = KerbalName + (wantsToGrab ? WantsToGrabMessage : HesitatingMessage);
+                var message = KerbalName + (WantsToGrab ? WantsToGrabMessage : HesitatingMessage);
                 ScreenMessages.PostScreenMessage(message, 3f);
             }
         }
@@ -194,7 +195,7 @@ namespace EasyBoard
         /// </summary>
         public bool IsCompleted()
         {
-            return (!wantsToBoard && !wantsToGrab) || Kerbal == null;
+            return (!WantsToBoard && !WantsToGrab) || Kerbal == null;
         }
 
         /// <summary>
@@ -269,8 +270,8 @@ namespace EasyBoard
         /// </summary>
         private void Reset()
         {
-            wantsToBoard = false;
-            wantsToGrab = false;
+            WantsToBoard = false;
+            WantsToGrab = false;
             airlockPart = null;
             seats = null;
         }

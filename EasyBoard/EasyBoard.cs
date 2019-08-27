@@ -74,13 +74,18 @@ namespace EasyBoard
         /// </summary>
         public void Update()
         {
+            if (FlightDriver.Pause)
+            {
+                return;
+            }
+
             if (DeferredUpdate != null)
             {
                 DeferredUpdate();
                 DeferredUpdate = null;
             }
 
-            this.CheckVesselControl();
+            CheckVesselControl();
 
             // switching vessel
             if (!GameSettings.MODIFIER_KEY.GetKey(false))
@@ -96,41 +101,95 @@ namespace EasyBoard
                 }
             }
 
-            var isBoardKey = false;
-            var isGrabKey = false;
-
-            KerbalEVA kerbal = FlightGlobals.ActiveVessel.evaController;
+            var isBoardKey = IsKeyUp(BoardKey);
+            var isGrabKey = IsKeyUp(GrabKey);
+            
+            var kerbal = FlightGlobals.ActiveVessel.evaController;
 
             // boarding and grabbing
-            if (FlightGlobals.ActiveVessel.isEVA && kerbal != null)
+            if ((isBoardKey || isGrabKey) && !MapView.MapIsEnabled)
             {
-                isBoardKey = IsKeyUp(this.BoardKey);
-                isGrabKey = IsKeyUp(this.GrabKey);
+                var isMassOrderKey = Input.GetKey(KeyCode.RightControl)
+                    && !GameSettings.MODIFIER_KEY.GetKey();
 
-                if (isBoardKey)
+                // order every kerbal to board/grab
+                if (isMassOrderKey)
                 {
-                    GetOrCreateIntention(kerbal).SwitchBoardIntention();
-                }
-
-                if (isGrabKey)
-                {
-                    // deal with available grab/climb action at the moment
-                    string pattern = "[" + this.GrabKey.ToString() + "]:";
-                    bool grabOrClimbIsAlreadyAvailable = false;
-                    ScreenMessages screenMessages = GameObject.FindObjectOfType<ScreenMessages>();
-
-                    foreach (var activeMessage in screenMessages.ActiveMessages)
+                    if (isBoardKey)
                     {
-                        if (activeMessage.message.StartsWith(pattern, StringComparison.InvariantCultureIgnoreCase))
+                        // create intention instances for all kerbals
+                        GetLoadedKerbals().Select(k => GetOrCreateIntention(k)).ToArray();
+
+                        if (intentions.Count > 0)
                         {
-                            grabOrClimbIsAlreadyAvailable = true;
-                            break;
+                            // switch intention if needed
+                            var allWants = intentions.All(i => i.WantsToBoard);
+
+                            foreach (var intention in intentions)
+                            {
+                                if (allWants)
+                                {
+                                    intention.SwitchBoardIntention();
+                                }
+                                else if (!intention.WantsToBoard) // switch only those who don't want
+                                {
+                                    intention.SwitchBoardIntention();
+                                }
+                            }
                         }
                     }
 
-                    if (!grabOrClimbIsAlreadyAvailable)
+                    if (isGrabKey)
                     {
-                        GetOrCreateIntention(kerbal).SwitchGrabIntention();
+                        // create intention instances for all kerbals
+                        GetLoadedKerbals().Select(k => GetOrCreateIntention(k)).ToArray();
+
+                        if (intentions.Count > 0)
+                        {
+                            // switch intention if needed
+                            var allWants = intentions.All(i => i.WantsToGrab);
+
+                            foreach (var intention in intentions)
+                            {
+                                if (allWants)
+                                {
+                                    intention.SwitchGrabIntention();
+                                }
+                                else if (!intention.WantsToGrab) // switch only those who don't want
+                                {
+                                    intention.SwitchGrabIntention();
+                                }
+                            }
+                        }
+                    }
+                }
+                else if (FlightGlobals.ActiveVessel.isEVA && kerbal != null)
+                {
+                    if (isBoardKey)
+                    {
+                        GetOrCreateIntention(kerbal).SwitchBoardIntention();
+                    }
+
+                    if (isGrabKey)
+                    {
+                        // respect available grab/climb action at the moment
+                        string pattern = "[" + this.GrabKey.ToString() + "]:";
+                        bool grabOrClimbIsAlreadyAvailable = false;
+                        ScreenMessages screenMessages = GameObject.FindObjectOfType<ScreenMessages>();
+
+                        foreach (var activeMessage in screenMessages.ActiveMessages)
+                        {
+                            if (activeMessage.message.StartsWith(pattern, StringComparison.InvariantCultureIgnoreCase))
+                            {
+                                grabOrClimbIsAlreadyAvailable = true;
+                                break;
+                            }
+                        }
+
+                        if (!grabOrClimbIsAlreadyAvailable)
+                        {
+                            GetOrCreateIntention(kerbal).SwitchGrabIntention();
+                        }
                     }
                 }
             }
@@ -167,6 +226,20 @@ namespace EasyBoard
             {
                 intentions.RemoveAll(i => i.IsCompleted());
             }
+        }
+
+        /// <summary>
+        /// Gets the loaded kerbals.
+        /// </summary>
+        /// <returns></returns>
+        private KerbalEVA[] GetLoadedKerbals()
+        {
+            var kerbals = FlightGlobals.Vessels
+                .Where(v => v.loaded && v.isEVA && v.evaController != null)
+                .Select(v => v.evaController)
+                .ToArray();
+
+            return kerbals;
         }
 
         /// <summary>
@@ -346,7 +419,6 @@ namespace EasyBoard
         {
             return Input.GetKeyUp(keyCode)
                 && !Input.GetKey(KeyCode.LeftControl)
-                && !Input.GetKey(KeyCode.RightControl)
                 && !Input.GetKey(KeyCode.LeftShift)
                 && !Input.GetKey(KeyCode.RightShift)
                 && !Input.GetKey(KeyCode.LeftAlt)
