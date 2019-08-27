@@ -214,9 +214,12 @@ namespace EasyBoard
                     else
                     {
                         // reactivate current vessel to refresh crew list
-                        FlightGlobals.ActiveVessel.MakeActive();
-                        GameEvents.onVesselChange.Fire(FlightGlobals.ActiveVessel);
-                        intention.LoadCameraDirection();
+                        if (intentionResult == Intention.Result.Boarded)
+                        {
+                            FlightGlobals.ActiveVessel.MakeActive();
+                            GameEvents.onVesselChange.Fire(FlightGlobals.ActiveVessel);
+                            intention.LoadCameraDirection();
+                        }
                     }
                 }
             }

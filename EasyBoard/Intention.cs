@@ -23,9 +23,9 @@ namespace EasyBoard
 
         // camera data
         private FlightCamera camera;
-        public FlightCamera.Modes cameraMode;
-        public Vector3 cameraPos;
-        public Vector3 cameraPivotPos;
+        private FlightCamera.Modes cameraMode;
+        private Vector3 cameraPos;
+        private Vector3 cameraPivotPos;
 
         /// <summary>
         /// The wants to board message.
@@ -217,8 +217,8 @@ namespace EasyBoard
             if (camera != null)
             {
                 camera.mode = cameraMode;
-                camera.GetPivot().position = cameraPivotPos;
                 camera.SetCamCoordsFromPosition(cameraPos);
+                camera.GetPivot().position = cameraPivotPos;
             }
         }
 
