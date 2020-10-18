@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -45,7 +45,7 @@ namespace EasyBoard
         /// <summary>
         /// The maximum distance to board the command seat.
         /// </summary>
-        private const float SeatDistance = 2f;
+        private const float SeatDistance = 0.8f;
 
         /// <summary>
         /// The original maximum distance to board the command seat.
@@ -80,7 +80,7 @@ namespace EasyBoard
                         // Keep previous airlock to avoid multiple attemts to board it.
                         airlockPart = newAirlockPart;
 
-                        if (newAirlockPart != null && /*Kerbal.vessel.state == Vessel.State.ACTIVE &&*/ !Kerbal.vessel.packed)
+                        if (newAirlockPart != null && !Kerbal.vessel.packed)
                         {
                             if (newAirlockPart.protoModuleCrew.Count < newAirlockPart.CrewCapacity)
                             {
@@ -102,26 +102,21 @@ namespace EasyBoard
                     {
                         KerbalSeat seat = GetNearestSeat(isBoardKeyJustPressed ? OriginalSeatDistance : SeatDistance);
 
-                        if (seat != null)
+                        if (seat != null && seat.Events.Contains("BoardSeat"))
                         {
-                            //seat.BoardSeat();
-                            if (seat.SeatBoundsAreClear(Kerbal.part))
+                            var boardSeatEvent = seat.Events["BoardSeat"];
+
+                            if (boardSeatEvent != null && boardSeatEvent.active && seat.SeatBoundsAreClear(Kerbal.part))
                             {
                                 SaveCameraDirection();
+                                boardSeatEvent.Invoke();
 
-                                if (Kerbal.BoardSeat(seat))
+                                // Check whether boarding seat was successful.
+                                if (!boardSeatEvent.active)
                                 {
-                                    SetObjectField<Part>(seat.GetType(), seat, "occupant", Kerbal.part);
-                                    ((PartModule)seat).Events["BoardSeat"].active = false;
+                                    Reset();
+                                    return Result.Boarded;
                                 }
-                            }
-
-
-                            // Check whether boarding seat was successful.
-                            if (!((PartModule)seat).Events["BoardSeat"].active)
-                            {
-                                Reset();
-                                return Result.Boarded;
                             }
                         }
                     }
@@ -241,8 +236,12 @@ namespace EasyBoard
                 // Get vessel seats available for boarding.
                 foreach (var seat in seats)
                 {
+                    var distance = seat.GetType().Name == nameof(KerbalSeat)
+                        ? maxDistance
+                        : 0.2f;
+
                     if (seat.Occupant == null &&
-                        (seat.transform.position - Kerbal.vessel.transform.position).sqrMagnitude <= maxDistance)
+                        (seat.transform.position - Kerbal.vessel.transform.position).sqrMagnitude <= distance)
                     {
                         nearSeats.Add(seat);
                     }
